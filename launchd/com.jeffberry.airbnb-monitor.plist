@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jeffberry.airbnb-monitor</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jeffberry/projects/airbnb_receipt_monitor/.venv/bin/python3</string>
+        <string>/Users/jeffberry/projects/airbnb_receipt_monitor/src/run_pipeline.py</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>1</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>2</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>3</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>4</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>5</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>6</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>7</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>8</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer><key>Day</key><integer>9</integer></dict>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jeffberry/Library/Logs/airbnb_monitor.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/jeffberry/Library/Logs/airbnb_monitor.log</string>
+</dict>
+</plist>
