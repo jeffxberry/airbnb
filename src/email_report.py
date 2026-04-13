@@ -50,12 +50,15 @@ def format_report(data: dict) -> str:
     if not data.get('bookings'):
         lines += ['  (No bookings detected \u2014 see warnings below)', '']
 
+    ab_nights = ab.get('nights', 0)
+    ab_rev = ab.get('revenue', 0.0)
+    di_nights = di.get('nights', 0)
+    di_rev = di.get('revenue', 0.0)
+
     lines += [
         '\u2500\u2500 AVALARA ENTRY \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
-        f'  AirBnB  \u2192  {ab["nights"]:2d} nights  /  {_fmt_money(ab["revenue"])}'
-        f'   (leave "Revenue Includes Tax" UNCHECKED)',
-        f'  Direct  \u2192  {di["nights"]:2d} nights  /  {_fmt_money(di["revenue"])}'
-        f'   (CHECK "Revenue Includes Tax")',
+        f'  AirBnB  \u2192  {ab_nights:2d} nights  /  {_fmt_money(ab_rev)}   (leave "Revenue Includes Tax" UNCHECKED)',
+        f'  Direct  \u2192  {di_nights:2d} nights  /  {_fmt_money(di_rev)}   (CHECK "Revenue Includes Tax")',
         f'  VRBO    \u2192   0 nights  /       $0.00',
         '',
         '\u2500\u2500 WARNINGS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
