@@ -49,25 +49,33 @@ def _build_query() -> str:
 def _get_pdf_attachment(service, msg_id: str) -> tuple[str, bytes] | None:
     """
     Return (filename, raw_bytes) for the first PDF attachment in the message.
-    Returns None if no PDF attachment is found.
+    Recursively searches nested multipart structures. Returns None if not found.
     """
     msg = service.users().messages().get(
         userId='me', id=msg_id, format='full'
     ).execute()
 
+    def _find_pdf(parts: list) -> tuple[str, bytes] | None:
+        for part in parts:
+            filename = part.get('filename', '')
+            mime = part.get('mimeType', '')
+            # Recurse into nested multipart
+            if mime.startswith('multipart/') and part.get('parts'):
+                result = _find_pdf(part['parts'])
+                if result:
+                    return result
+            if filename.lower().endswith('.pdf') or mime == 'application/pdf':
+                att_id = part.get('body', {}).get('attachmentId')
+                if att_id:
+                    att = service.users().messages().attachments().get(
+                        userId='me', messageId=msg_id, id=att_id
+                    ).execute()
+                    data = base64.urlsafe_b64decode(att['data'])
+                    return filename, data
+        return None
+
     parts = msg.get('payload', {}).get('parts', [])
-    for part in parts:
-        filename = part.get('filename', '')
-        mime = part.get('mimeType', '')
-        if filename.lower().endswith('.pdf') or mime == 'application/pdf':
-            att_id = part.get('body', {}).get('attachmentId')
-            if att_id:
-                att = service.users().messages().attachments().get(
-                    userId='me', messageId=msg_id, id=att_id
-                ).execute()
-                data = base64.urlsafe_b64decode(att['data'])
-                return filename, data
-    return None
+    return _find_pdf(parts)
 
 
 def fetch_new_receipts(service) -> list[str]:
@@ -88,6 +96,7 @@ def fetch_new_receipts(service) -> list[str]:
         return []
 
     receipts_dir = Path(RECEIPTS_DIR)
+    receipts_dir.mkdir(parents=True, exist_ok=True)
     new_pdfs: list[str] = []
 
     for msg_meta in messages:
