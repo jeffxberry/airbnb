@@ -7,3 +7,5 @@ __pycache__/
 .DS_Store
 *.done
 Claude Code Brief*.md
+.env
+docs/superpowers/

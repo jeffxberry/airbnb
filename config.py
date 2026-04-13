@@ -1,7 +1,12 @@
-RECEIPTS_DIR      = "/Users/jeffberry/Documents/Rice Drive LLC/SalesReceipts/"
-SOURCE_EMAIL      = "Accounting@myrentaladvisor.com"
-SUBJECT_KEYWORDS  = ["Sales Receipt", "Tempe Townhome", "Owner Statement"]
-GMAIL_ACCOUNT     = "berrystaysllc@gmail.com"
-REPORT_TO         = "berrystaysllc@gmail.com"
-AVALARA_PROPERTY  = "167558 - Rice Drive LLC"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+RECEIPTS_DIR      = os.environ["RECEIPTS_DIR"]
+SOURCE_EMAIL      = os.environ["SOURCE_EMAIL"]
+SUBJECT_KEYWORDS  = [kw.strip() for kw in os.environ["SUBJECT_KEYWORDS"].split(",")]
+GMAIL_ACCOUNT     = os.environ["GMAIL_ACCOUNT"]
+REPORT_TO         = os.environ["REPORT_TO"]
+AVALARA_PROPERTY  = os.environ["AVALARA_PROPERTY"]
 AIRBNB_TAX_PHRASE = "Taxes for this reservation already paid by Vendor"
