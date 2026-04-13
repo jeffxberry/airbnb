@@ -112,7 +112,7 @@ Update the paths inside the plist file to match your machine before loading.
 
 ```
 Tax Period  : March 2026
-Property    : 167558 - Rice Drive LLC
+Property    : 123456 - Your LLC Name
 
 ── BOOKINGS ────────────────────────────────────────
 Stay #1  [AIRBNB]
