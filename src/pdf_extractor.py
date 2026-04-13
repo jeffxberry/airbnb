@@ -5,7 +5,7 @@ from datetime import datetime
 import pdfplumber
 from config import AIRBNB_TAX_PHRASE
 
-BOOKING_REF_RE = re.compile(r'\b(ORB|BK|RES|CONF|INV)(\d+)\b', re.IGNORECASE)
+BOOKING_REF_RE = re.compile(r'\b(ORB)(\d{5,})\b', re.IGNORECASE)
 EXCLUDE_LINE_RE = re.compile(
     r'service\s+fee|payment\s+released|balance\s+due|tax\s+disclaimer',
     re.IGNORECASE
@@ -66,6 +66,7 @@ def _parse_bookings(full_text: str) -> list[dict]:
         block_flat = ' '.join(block.split())
         check_in = check_out = None
         nights = None
+        date_fallback = False
 
         # Strategy A: "date to date" directly adjacent (clean layout)
         direct_m = re.search(
@@ -104,6 +105,7 @@ def _parse_bookings(full_text: str) -> list[dict]:
                         others = [d for d in all_dates if d != check_in]
                         if others:
                             check_out = others[0]
+                            date_fallback = True  # flag for caller
 
         if check_in and check_out:
             try:
@@ -118,7 +120,7 @@ def _parse_bookings(full_text: str) -> list[dict]:
         for line in block.splitlines():
             if EXCLUDE_LINE_RE.search(line):
                 continue
-            if re.search(r'-\s*[\d,]+\.\d{2}', line):
+            if re.search(r'[-\(]\s*[\d,]+\.\d{2}', line):
                 continue
             amt_m = re.search(r'(?<!\d)([\d,]+\.\d{2})(?!\d)', line)
             if amt_m:
@@ -133,6 +135,7 @@ def _parse_bookings(full_text: str) -> list[dict]:
             'check_out': check_out,
             'nights': nights,
             'revenue': round(revenue, 2),
+            '_date_fallback': date_fallback,
         })
 
     return bookings
@@ -170,6 +173,14 @@ def extract(pdf_path: str) -> dict:
     full_text = '\n'.join(pages_text)
 
     bookings = _parse_bookings(full_text)
+
+    # Consume the internal date-fallback flag before exposing bookings to callers
+    for b in bookings:
+        if b.pop('_date_fallback', False):
+            result['warnings'].append(
+                f"[{b['ref']}] Date fallback used — verify check-out date manually."
+            )
+
     result['bookings'] = bookings
 
     for b in bookings:
