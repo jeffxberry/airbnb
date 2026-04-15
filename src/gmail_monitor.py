@@ -1,6 +1,8 @@
 from __future__ import annotations
 import base64
+import json
 import logging
+import os
 from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -10,8 +12,11 @@ from config import SUBJECT_KEYWORDS, RECEIPTS_DIR
 
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.modify',
     'https://www.googleapis.com/auth/gmail.send',
 ]
+
+PROCESSED_LABEL = 'airbnb-receipt-processed'
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 CREDENTIALS_FILE = _PROJECT_ROOT / 'credentials' / 'credentials.json'
@@ -21,9 +26,12 @@ log = logging.getLogger(__name__)
 
 
 def get_credentials() -> Credentials:
-    """Load OAuth token from disk, refreshing if expired. Runs browser flow if no token exists."""
+    """Load OAuth token from env var or disk, refreshing if expired. Runs browser flow if no token exists."""
     creds = None
-    if TOKEN_FILE.exists():
+    token_json = os.environ.get('GMAIL_TOKEN_JSON')
+    if token_json:
+        creds = Credentials.from_authorized_user_info(json.loads(token_json), SCOPES)
+    elif TOKEN_FILE.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
@@ -41,9 +49,30 @@ def build_service():
     return build('gmail', 'v1', credentials=get_credentials())
 
 
+def get_or_create_label(service) -> str:
+    """Return the label ID for PROCESSED_LABEL, creating it in Gmail if it doesn't exist."""
+    labels = service.users().labels().list(userId='me').execute()
+    for label in labels.get('labels', []):
+        if label['name'] == PROCESSED_LABEL:
+            return label['id']
+    new_label = service.users().labels().create(
+        userId='me', body={'name': PROCESSED_LABEL}
+    ).execute()
+    return new_label['id']
+
+
+def mark_as_processed(service, msg_id: str, label_id: str) -> None:
+    """Apply the processed label to a Gmail message."""
+    service.users().messages().modify(
+        userId='me', id=msg_id,
+        body={'addLabelIds': [label_id]}
+    ).execute()
+
+
 def _build_query() -> str:
-    """Build Gmail search query requiring all subject keywords."""
-    return ' '.join(f'subject:"{kw}"' for kw in SUBJECT_KEYWORDS)
+    """Build Gmail search query requiring all subject keywords, excluding already-processed emails."""
+    keywords = ' '.join(f'subject:"{kw}"' for kw in SUBJECT_KEYWORDS)
+    return f'{keywords} -label:{PROCESSED_LABEL}'
 
 
 def _get_pdf_attachment(service, msg_id: str) -> tuple[str, bytes] | None:
@@ -78,12 +107,12 @@ def _get_pdf_attachment(service, msg_id: str) -> tuple[str, bytes] | None:
     return _find_pdf(parts)
 
 
-def fetch_new_receipts(service) -> list[str]:
+def fetch_new_receipts(service) -> list[tuple[str, str]]:
     """
-    Search Gmail for matching receipt emails and download any unprocessed PDFs.
+    Search Gmail for unprocessed receipt emails and download their PDFs.
 
-    Skips emails whose PDF already has a .done sentinel file.
-    Returns list of absolute paths to newly downloaded (or pre-existing unprocessed) PDFs.
+    Emails already labeled as processed are excluded at the query level.
+    Returns list of (message_id, pdf_path) tuples for newly downloaded receipts.
     """
     query = _build_query()
     log.info(f'Gmail search: {query}')
@@ -97,7 +126,7 @@ def fetch_new_receipts(service) -> list[str]:
 
     receipts_dir = Path(RECEIPTS_DIR)
     receipts_dir.mkdir(parents=True, exist_ok=True)
-    new_pdfs: list[str] = []
+    new_receipts: list[tuple[str, str]] = []
 
     for msg_meta in messages:
         attachment = _get_pdf_attachment(service, msg_meta['id'])
@@ -106,11 +135,6 @@ def fetch_new_receipts(service) -> list[str]:
 
         filename, data = attachment
         dest_path = receipts_dir / filename
-        done_path = receipts_dir / (Path(filename).stem + '.done')
-
-        if done_path.exists():
-            log.info(f'Already processed: {filename}')
-            continue
 
         if not dest_path.exists():
             dest_path.write_bytes(data)
@@ -118,6 +142,6 @@ def fetch_new_receipts(service) -> list[str]:
         else:
             log.info(f'PDF exists, not yet processed: {filename}')
 
-        new_pdfs.append(str(dest_path))
+        new_receipts.append((msg_meta['id'], str(dest_path)))
 
-    return new_pdfs
+    return new_receipts
