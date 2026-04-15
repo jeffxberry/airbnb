@@ -16,29 +16,40 @@ Summary email sent with Avalara-ready numbers
 You log into Avalara and enter the numbers manually
 ```
 
-A macOS `launchd` job runs the pipeline automatically at noon on days 1–9 of each month. It only sends an email when a new unprocessed receipt is found — most days it exits silently.
+### Execution Methods
+
+**Claude Code Routine (primary)** — Runs automatically in the cloud on days 1–9 of each month at noon. Uses a hybrid approach:
+- Gmail MCP tools search for and read receipt emails
+- Python scripts download PDF attachments and extract booking data
+- Gmail MCP sends the formatted report email
+- Processed receipts are labeled in Gmail to prevent reprocessing
+
+**macOS launchd (legacy)** — A local scheduler that runs the Python pipeline directly. Requires the Mac to be online. The plist is included in `launchd/` but is not loaded by default.
+
+Both methods use the same Gmail label (`airbnb-receipt-processed`) for deduplication, so they can run side-by-side without processing the same receipt twice.
 
 ## Project Structure
 
 ```
 airbnb_receipt_monitor/
-├── config.py               # Loads settings from .env
-├── .env                    # Your personal settings (never committed)
-├── .env.example            # Template — copy this to .env and fill in
+├── config.py                  # Loads settings from .env
+├── .env                       # Your personal settings (never committed)
+├── .env.example               # Template — copy this to .env and fill in
 ├── src/
-│   ├── gmail_monitor.py    # Finds and downloads receipt emails via Gmail API
-│   ├── pdf_extractor.py    # Parses the PDF into structured booking data
-│   ├── email_report.py     # Formats and sends the summary email
-│   └── run_pipeline.py     # Entry point — ties everything together
-├── tests/                  # Automated tests
+│   ├── gmail_monitor.py       # Finds and downloads receipt emails via Gmail API
+│   ├── pdf_extractor.py       # Parses the PDF into structured booking data
+│   ├── email_report.py        # Formats and sends the summary email
+│   ├── run_pipeline.py        # Entry point for local execution
+│   ├── routine_pdf_download.py  # CLI script — downloads PDF attachment by message ID
+│   └── routine_extract.py     # CLI script — extracts booking data from PDF as JSON
+├── tests/                     # Automated tests
 ├── launchd/
-│   └── com.jeffberry.airbnb-monitor.plist  # macOS scheduler
-└── credentials/            # OAuth token lives here (never committed)
+│   └── com.jeffberry.airbnb-monitor.plist  # macOS scheduler (legacy)
+└── credentials/               # OAuth token lives here (never committed)
 ```
 
 ## Prerequisites
 
-- macOS
 - Python 3.12
 - A Gmail account that receives the property manager's receipt emails
 - A [Google Cloud project](https://console.cloud.google.com/) with the Gmail API enabled
@@ -99,7 +110,16 @@ Check the log:
 tail -30 ~/Library/Logs/airbnb_monitor.log
 ```
 
-### 6. Install the scheduler
+### 6. Set up the Claude Code Routine
+
+1. Go to [claude.ai/code/routines](https://claude.ai/code/routines) and create a new Routine
+2. Connect your GitHub repo and Gmail account as a connector
+3. Set the schedule to run days 1–9 of each month at noon
+4. Add environment variables: `GMAIL_TOKEN_JSON` (contents of `credentials/token.json`), `RECEIPTS_DIR`, `SOURCE_EMAIL`, `SUBJECT_KEYWORDS`, `GMAIL_ACCOUNT`, `REPORT_TO`, `AVALARA_PROPERTY`, and `CLAUDE_CODE_REMOTE=true`
+5. Set the setup script to `pip install -r requirements.txt`
+6. Add the Routine prompt with instructions to search Gmail, download PDFs, extract data, and send the report
+
+### 6b. Alternative: macOS launchd (local)
 
 ```bash
 cp launchd/com.jeffberry.airbnb-monitor.plist ~/Library/LaunchAgents/
@@ -145,13 +165,15 @@ QuickBooks receipts include the phrase *"Taxes for this reservation already paid
 .venv/bin/pytest tests/ -v
 ```
 
-The PDF extraction tests require a real receipt PDF at the path configured in `.env`. All other tests run without any external dependencies.
+PDF extraction integration tests require a test receipt PDF at `tests/fixtures/test_receipt.pdf`. All other tests run without any external dependencies.
 
 ## Logs
 
-All runs are logged to:
+When running locally, all runs are logged to:
 ```
 ~/Library/Logs/airbnb_monitor.log
 ```
+
+When running via Claude Code Routine, output is captured in the Routine session log on claude.ai.
 
 If the pipeline fails, a short error notification is sent to the `REPORT_TO` email address.

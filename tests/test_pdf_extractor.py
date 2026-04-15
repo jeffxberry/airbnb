@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from src.pdf_extractor import extract, normalize_date, parse_money
 
-PDF_PATH = "/Users/jeffberry/Documents/Rice Drive LLC/SalesReceipts/2026-03_Sales_Receipt_10879_from_Rental_Advisor.pdf"
+PDF_PATH = str(Path(__file__).parent / "fixtures" / "test_receipt.pdf")
 PDF_EXISTS = Path(PDF_PATH).exists()
 
 

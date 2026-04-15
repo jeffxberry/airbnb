@@ -1,4 +1,5 @@
 from src.email_report import format_report, build_subject, _month_label
+from config import AVALARA_PROPERTY
 
 SAMPLE_DATA = {
     'tax_period': '2026-02',
@@ -70,7 +71,7 @@ def test_format_report_with_warnings():
 
 
 def test_format_report_has_property():
-    assert '167558 - Rice Drive LLC' in format_report(SAMPLE_DATA)
+    assert AVALARA_PROPERTY in format_report(SAMPLE_DATA)
 
 
 def test_format_report_has_tax_period():
