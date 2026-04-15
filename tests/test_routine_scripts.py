@@ -76,3 +76,53 @@ def test_routine_pdf_download_no_attachment(tmp_path, monkeypatch):
         result = download_pdf('msg-abc123', str(tmp_path))
 
     assert result is None
+
+
+def test_routine_extract_outputs_json(tmp_path, monkeypatch):
+    """routine_extract prints valid JSON with expected keys."""
+    monkeypatch.setenv('RECEIPTS_DIR', str(tmp_path))
+    monkeypatch.setenv('SOURCE_EMAIL', 'test@example.com')
+    monkeypatch.setenv('SUBJECT_KEYWORDS', 'Test')
+    monkeypatch.setenv('GMAIL_ACCOUNT', 'test@example.com')
+    monkeypatch.setenv('REPORT_TO', 'test@example.com')
+    monkeypatch.setenv('AVALARA_PROPERTY', '12345 - Test LLC')
+
+    from src.routine_extract import extract_to_json
+
+    fake_data = {
+        'source_file': 'test.pdf',
+        'tax_period': '2026-03',
+        'bookings': [{'ref': 'ORB12345', 'channel': 'airbnb', 'check_in': '2026-02-01', 'check_out': '2026-03-01', 'nights': 28, 'revenue': 3000.0}],
+        'avalara_channels': {
+            'airbnb': {'revenue': 3000.0, 'nights': 28},
+            'direct': {'revenue': 0.0, 'nights': 0},
+        },
+        'warnings': [],
+    }
+
+    # Create a dummy file so the existence check passes
+    test_pdf = tmp_path / 'test.pdf'
+    test_pdf.write_bytes(b'%PDF-1.4 fake')
+
+    with patch('src.routine_extract.extract', return_value=fake_data):
+        result = extract_to_json(str(test_pdf))
+
+    parsed = json.loads(result)
+    assert parsed['tax_period'] == '2026-03'
+    assert parsed['bookings'][0]['ref'] == 'ORB12345'
+    assert parsed['avalara_channels']['airbnb']['revenue'] == 3000.0
+
+
+def test_routine_extract_missing_file(monkeypatch):
+    """routine_extract raises FileNotFoundError for missing PDF."""
+    monkeypatch.setenv('RECEIPTS_DIR', '/tmp')
+    monkeypatch.setenv('SOURCE_EMAIL', 'test@example.com')
+    monkeypatch.setenv('SUBJECT_KEYWORDS', 'Test')
+    monkeypatch.setenv('GMAIL_ACCOUNT', 'test@example.com')
+    monkeypatch.setenv('REPORT_TO', 'test@example.com')
+    monkeypatch.setenv('AVALARA_PROPERTY', '12345 - Test LLC')
+
+    from src.routine_extract import extract_to_json
+
+    with pytest.raises(FileNotFoundError):
+        extract_to_json('/tmp/nonexistent_file.pdf')
