@@ -46,7 +46,16 @@ def get_credentials() -> Credentials:
 
 def build_service():
     """Return an authenticated Gmail API service object."""
-    return build('gmail', 'v1', credentials=get_credentials())
+    creds = get_credentials()
+    if os.environ.get('CLAUDE_CODE_REMOTE') == 'true':
+        # Cloud proxy does SSL inspection; bypass cert validation for API calls
+        import httplib2
+        import google_auth_httplib2
+        authorized_http = google_auth_httplib2.AuthorizedHttp(
+            creds, http=httplib2.Http(disable_ssl_certificate_validation=True)
+        )
+        return build('gmail', 'v1', http=authorized_http)
+    return build('gmail', 'v1', credentials=creds)
 
 
 def get_or_create_label(service) -> str:
