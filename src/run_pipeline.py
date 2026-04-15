@@ -1,21 +1,25 @@
 from __future__ import annotations
 import sys
+import os
 import logging
 from pathlib import Path
 
 # Ensure project root is in sys.path when called by launchd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.gmail_monitor import build_service, fetch_new_receipts, get_credentials
+from src.gmail_monitor import build_service, fetch_new_receipts, get_credentials, get_or_create_label, mark_as_processed
 from src.pdf_extractor import extract
 from src.email_report import send_report, send_failure_notice
 
-LOG_FILE = Path.home() / 'Library' / 'Logs' / 'airbnb_monitor.log'
+_handlers = [logging.StreamHandler()]
+if os.environ.get('CLAUDE_CODE_REMOTE') != 'true':
+    _log_file = Path.home() / 'Library' / 'Logs' / 'airbnb_monitor.log'
+    _handlers.append(logging.FileHandler(str(_log_file)))
 
 logging.basicConfig(
-    filename=str(LOG_FILE),
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(message)s',
+    handlers=_handlers,
 )
 log = logging.getLogger(__name__)
 
@@ -26,13 +30,14 @@ def main() -> None:
 
     try:
         service = build_service()
-        new_pdfs = fetch_new_receipts(service)
+        label_id = get_or_create_label(service)
+        new_receipts = fetch_new_receipts(service)
 
-        if not new_pdfs:
+        if not new_receipts:
             log.info('No new receipts found. Exiting.')
             return
 
-        for pdf_path in new_pdfs:
+        for msg_id, pdf_path in new_receipts:
             log.info(f'Processing: {pdf_path}')
             data = extract(pdf_path)
 
@@ -42,9 +47,8 @@ def main() -> None:
             send_report(service, data)
             log.info(f'Report sent for tax period: {data["tax_period"]}')
 
-            done_path = Path(pdf_path).with_suffix('.done')
-            done_path.touch()
-            log.info(f'Marked as done: {done_path.name}')
+            mark_as_processed(service, msg_id, label_id)
+            log.info(f'Labeled as processed: {msg_id}')
 
     except Exception as e:
         log.exception('Pipeline failed')
