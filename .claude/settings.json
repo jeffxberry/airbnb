@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pip install -r \"$CLAUDE_PROJECT_DIR/requirements.txt\""
+          }
+        ]
+      }
+    ]
+  }
+}
